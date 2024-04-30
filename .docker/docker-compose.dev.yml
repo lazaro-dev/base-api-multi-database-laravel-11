@@ -1,0 +1,85 @@
+version: '3.8'
+
+name: base-api-main
+
+volumes:
+  phpmyadmin_data:
+
+networks:
+  base-api-net:
+    driver: bridge
+
+services:
+  app:
+    container_name: base-api-app
+    build:
+      context: ..
+      dockerfile: .docker/Dockerfile.dev
+    image: laravel/base-api-app
+    restart: unless-stopped
+    working_dir: /var/www/
+    volumes:
+      - ../:/var/www
+      - /var/www/vendor
+    depends_on:
+      - mysql
+    networks:
+      - base-api-net
+
+  nginx:
+    container_name: base-api-nginx
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - ../:/var/www
+      - ./nginx/:/etc/nginx/conf.d/
+      - /var/www/vendor
+      # - "../storage/app/public/images:/var/www/storage/app/public/images:ro"
+      - "../storage/app/public/images:/var/www/storage/app/public/images:ro"
+    networks:
+      - base-api-net
+
+  mysql:
+    image: mysql
+    command: --default-authentication-plugin=mysql_native_password
+    container_name: base-api-mysql
+    restart: unless-stopped
+    tty: true
+    ports:
+      - "3306:3306"
+    cap_add:
+      - SYS_NICE
+    environment:
+      MYSQL_DATABASE: base_api
+      MYSQL_PASSWORD: admin
+      MYSQL_ROOT_PASSWORD: admin
+      TZ: America/Sao_Paulo
+    volumes:
+      - ./mysql_data/dbdata:/var/lib/mysql
+    networks:
+      - base-api-net
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest
+    restart: always
+    ports:
+      - 80:80
+    environment:
+      MYSQL_ROOT_PASSWORD: admin
+      PMA_HOST: mysql
+    volumes:
+      - phpmyadmin_data:/var/www/html/
+    depends_on:
+      - mysql
+    networks:
+      - base-api-net
+
+  # npm:
+  #   image: node:lts-alpine
+  #   container_name: base-api-npm
+  #   volumes:
+  #       - ../:/var/www/
+  #   working_dir: /var/www/
+  #   entrypoint: [ 'npm' ]
